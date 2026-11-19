@@ -123,3 +123,4 @@ opensquilla-webui/public/music
 
 # Isolated local implementation worktrees.
 /.worktrees/
+push_api.py

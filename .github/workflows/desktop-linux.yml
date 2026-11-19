@@ -1,0 +1,116 @@
+name: Desktop Linux Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: Build architecture
+        required: false
+        type: choice
+        default: x64
+        options:
+          - x64
+          - arm64
+      publish:
+        description: Publish built Linux packages to the release draft (otherwise keep them as workflow artifacts only)
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-linux-${{ github.event.inputs.arch || 'x64' }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22.12.0"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  build-desktop-linux:
+    name: Build Linux Electron packages (${{ github.event.inputs.arch || 'x64' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - ${{ github.event.inputs.arch || 'x64' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          persist-credentials: false
+
+      - name: Hydrate router and LightGBM assets
+        shell: bash
+        run: git lfs pull --include="src/opensquilla/squilla_router/models/**,src/opensquilla/squilla_router/lightgbm_model/assets/**"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: desktop/electron/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Linux Electron runtime libraries
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            libpango-1.0-0 libpangoft2-1.0-0 \
+            libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
+            libgtk-3-0 libgbm1 libasound2 libxss1 libxcursor1 \
+            libxcomposite1 libxdamage1 libxfixes3 libxi6 libxrandr2 \
+            libexpat1 fonts-noto-cjk
+
+      - name: Install Electron dependencies
+        working-directory: desktop/electron
+        run: npm ci
+
+      - name: Verify test-package runtime-pack catalog
+        working-directory: desktop/electron
+        run: node ../../.github/scripts/verify-sandbox-package.mjs --source
+
+      - name: Build Web UI and desktop gateway
+        working-directory: desktop/electron
+        run: |
+          npm run build:web
+          npm run build:gateway
+          npm run build
+          npm run verify:prepared
+
+      - name: Build Linux Electron packages
+        working-directory: desktop/electron
+        run: npx electron-builder --linux --publish never --arch ${{ matrix.arch }}
+
+      - name: Verify Electron package
+        working-directory: desktop/electron
+        run: npm run verify:package
+
+      - name: List Linux artifacts
+        shell: bash
+        run: find dist/desktop-electron -maxdepth 2 -type f -print
+
+      - name: Upload Linux Electron artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opensquilla-electron-linux-${{ matrix.arch }}
+          path: |
+            dist/desktop-electron/*.AppImage
+            dist/desktop-electron/*.deb
+            dist/desktop-electron/*.blockmap
+          overwrite: true

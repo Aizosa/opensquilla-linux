@@ -9,6 +9,7 @@ const packageRoot = resolve(scriptDir, '..')
 const packageJsonPath = join(packageRoot, 'package.json')
 const macIconPath = join(packageRoot, 'assets', 'icon.icns')
 const windowsIconPath = join(packageRoot, 'assets', 'icon.ico')
+const linuxIconPath = join(packageRoot, 'assets', 'icon.png')
 
 const failures = []
 
@@ -154,6 +155,15 @@ if (!existsSync(macIconPath)) {
   fail(`macOS icon is missing at ${macIconPath}`)
 }
 
+if (!existsSync(linuxIconPath)) {
+  fail(`Linux icon is missing at ${linuxIconPath}`)
+} else {
+  const linuxIconBuffer = await readFile(linuxIconPath)
+  if (linuxIconBuffer.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') {
+    fail('Linux icon must be a PNG file')
+  }
+}
+
 if (!existsSync(windowsIconPath)) {
   fail(`Windows icon is missing at ${windowsIconPath}`)
 } else {
@@ -193,6 +203,7 @@ if (!existsSync(windowsIconPath)) {
 expectEqual(build.mac?.icon, 'assets/icon.icns', 'build.mac.icon')
 expectEqual(build.dmg?.icon, 'assets/icon.icns', 'build.dmg.icon')
 expectEqual(build.win?.icon, 'assets/icon.ico', 'build.win.icon')
+expectEqual(build.linux?.icon, 'assets/icon.png', 'build.linux.icon')
 expectEqual(build.nsis?.installerIcon, 'assets/icon.ico', 'build.nsis.installerIcon')
 expectEqual(build.nsis?.uninstallerIcon, 'assets/icon.ico', 'build.nsis.uninstallerIcon')
 
