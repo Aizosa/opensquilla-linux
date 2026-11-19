@@ -9,6 +9,12 @@ import {
   withLocalMacBuildEnvironment,
 } from './build-local.mjs'
 
+const PLATFORM_PACKAGERS = {
+  darwin: 'buildMac',
+  win32: 'buildWindowsTest',
+  linux: 'buildLinux',
+}
+
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version
 
 test('local CLI accepts only a packaging target and optional prepared mode', () => {
@@ -21,7 +27,7 @@ test('local CLI accepts only a packaging target and optional prepared mode', () 
   }
 })
 
-for (const platform of ['darwin', 'win32']) {
+for (const platform of ['darwin', 'win32', 'linux']) {
   test(`${platform} production test packages embed production and verify their separate output`, async () => {
     const calls = []
     const verifyBuild = async (mode, config) => {
@@ -34,8 +40,7 @@ for (const platform of ['darwin', 'win32']) {
     }
     await runLocalBuild({ mode: 'dist', prepared: true, test: true, production: true }, {
       platform,
-      buildMac: verifyBuild,
-      buildWindowsTest: verifyBuild,
+      [PLATFORM_PACKAGERS[platform]]: verifyBuild,
       runScript: async (script, env) => {
         calls.push(script)
         if (script === 'verify:package') {
@@ -84,7 +89,7 @@ test('test packaging forwards embedded configuration and verifies only its outpu
   assert.deepEqual(calls, ['build', 'verify:prepared', 'package', 'verify:package'])
 })
 
-test('Windows and Linux retain their existing packaging entries', async () => {
+test('non-prepared entry points still defer to the release packaging script', async () => {
   for (const platform of ['win32', 'linux']) {
     for (const mode of ['pack', 'dist']) {
       for (const prepared of [false, true]) {
@@ -123,10 +128,33 @@ test('Windows test packages build fresh resources and keep UAT metadata and veri
   assert.deepEqual(calls, ['build:web', 'build:gateway', 'build', 'verify:prepared', 'windows-package', 'verify:package'])
 })
 
+test('Linux test packages build fresh resources and keep UAT metadata and verification', async () => {
+  const calls = []
+  await runLocalBuild({ mode: 'dist', prepared: false, test: true }, {
+    platform: 'linux',
+    buildMac: async () => assert.fail('Linux must not use macOS signing'),
+    buildLinux: async (mode, config) => {
+      assert.equal(mode, 'dist')
+      assert.equal(config.extraMetadata.version, packageVersion)
+      assert.match(config.artifactName, /-test-\d{8}-\d{6}-/)
+      assert.equal(config.extraMetadata.opensquillaTokenRhythmOrigin, 'https://gpt.tokenrhythm.studio')
+      calls.push('linux-package')
+    },
+    runScript: async (script, env) => {
+      calls.push(script)
+      if (script === 'verify:package') {
+        assert.equal(env.OPENSQUILLA_EXPECT_ACCOUNT_ORIGIN, 'https://gpt.tokenrhythm.studio')
+        assert.ok(env.OPEN_SQUILLA_PACKAGE_OUTPUT.replaceAll('\\', '/').endsWith('/test'))
+      }
+    },
+  })
+  assert.deepEqual(calls, ['build:web', 'build:gateway', 'build', 'verify:prepared', 'linux-package', 'verify:package'])
+})
+
 test('unsupported test platforms stop before building any resources', async () => {
   await assert.rejects(runLocalBuild({ mode: 'dist', test: true }, {
-    platform: 'linux', runScript: async () => assert.fail('must stop before building'),
-  }), /requires macOS or Windows/)
+    platform: 'freebsd', runScript: async () => assert.fail('must stop before building'),
+  }), /requires macOS, Windows or Linux/)
 })
 
 test('full local macOS builds prepare the runtime before packaging', async () => {

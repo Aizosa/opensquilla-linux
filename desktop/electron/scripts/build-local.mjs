@@ -135,16 +135,29 @@ async function buildLocalWindowsTest(mode, overrides) {
   }))
 }
 
+async function buildLocalLinux(mode, overrides) {
+  const { build, Platform, Arch } = await import('electron-builder')
+  const linuxArch = process.arch === 'arm64' || process.arch === 'aarch64' ? Arch.arm64 : Arch.x64
+  await withLocalMacBuildEnvironment(() => build({
+    projectDir: packageRoot,
+    // Local Linux packaging uses the unpacked directory when packing, and the
+    // configured release targets (AppImage + deb) when producing a distributable.
+    targets: Platform.LINUX.createTarget(mode === 'pack' ? 'dir' : null, linuxArch),
+    publish: 'never',
+    config: { ...overrides, forceCodeSigning: false },
+  }))
+}
+
 export async function runLocalBuild({ mode, prepared, test = false, production = false }, {
   platform = process.platform, runScript = runNpmScript, buildMac = buildLocalMac,
-  buildWindowsTest = buildLocalWindowsTest,
+  buildWindowsTest = buildLocalWindowsTest, buildLinux = buildLocalLinux,
 } = {}) {
   if (production && !test) throw new Error('Production test packaging requires --test')
   if (platform !== 'darwin' && !test) {
     await runScript(`${mode}${prepared ? ':prepared' : ''}`)
     return
   }
-  if (platform !== 'darwin' && platform !== 'win32') throw new Error('Local test packaging requires macOS or Windows.')
+  if (!['darwin', 'win32', 'linux'].includes(platform)) throw new Error('Local test packaging requires macOS, Windows or Linux.')
   if (!prepared) {
     await runScript('build:web')
     await runScript('build:gateway')
@@ -154,6 +167,7 @@ export async function runLocalBuild({ mode, prepared, test = false, production =
   const overrides = test ? createLocalTestBuildConfig(new Date(), { production }) : {}
   if (test) console.log(`Local test package: ${overrides.artifactName}; app version: ${overrides.extraMetadata.version}; account/API origin: ${overrides.extraMetadata.opensquillaTokenRhythmOrigin}`)
   if (platform === 'win32') await buildWindowsTest(mode, overrides)
+  else if (platform === 'linux') await buildLinux(mode, overrides)
   else await buildMac(mode, overrides)
   await runScript('verify:package', test
     ? {

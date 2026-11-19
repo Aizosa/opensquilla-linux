@@ -226,6 +226,15 @@
         "nsis"
       ]
     },
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Development",
+      "synopsis": "OpenSquilla Control UI",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,

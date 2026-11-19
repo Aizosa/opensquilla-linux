@@ -1738,11 +1738,15 @@ function installDesktopRendererProtocol(): void {
 }
 
 function appIconPath(): string {
-  // Only icon.icns (macOS) and icon.ico (Windows) ship in assets/ — there is no
-  // icon.png, so the previous path resolved to a missing file everywhere. On
-  // macOS BrowserWindow.icon is ignored (the bundle icon is used), so pointing at
-  // the platform icon that exists is correct for the surfaces that do read it.
-  const iconFile = process.platform === 'win32' ? 'icon.ico' : 'icon.icns'
+  // Per-platform icons ship in assets/: icon.icns (macOS), icon.ico (Windows)
+  // and icon.png (Linux). On macOS BrowserWindow.icon is ignored (the bundle
+  // icon is used), so pointing at the platform icon that exists is correct for
+  // the surfaces that do read it.
+  const iconFile = process.platform === 'win32'
+    ? 'icon.ico'
+    : process.platform === 'linux'
+      ? 'icon.png'
+      : 'icon.icns'
   return app.isPackaged
     ? join(process.resourcesPath, 'app.asar', 'assets', iconFile)
     : join(packageRoot, 'assets', iconFile)
