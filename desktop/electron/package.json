@@ -231,6 +231,7 @@
       "category": "Development",
       "synopsis": "OpenSquilla Control UI",
       "executableName": "OpenSquilla",
+      "maintainer": "OpenSquilla <ai.opensquilla.desktop@users.noreply.github.com>",
       "target": [
         "AppImage",
         "deb"
