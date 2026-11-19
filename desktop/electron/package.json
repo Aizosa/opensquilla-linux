@@ -234,7 +234,8 @@
       "maintainer": "OpenSquilla <ai.opensquilla.desktop@users.noreply.github.com>",
       "target": [
         "AppImage",
-        "deb"
+        "deb",
+        "rpm"
       ]
     },
     "nsis": {
