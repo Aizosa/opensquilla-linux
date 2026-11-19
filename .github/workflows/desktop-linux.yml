@@ -30,8 +30,8 @@ env:
 
 jobs:
   build-desktop-linux:
-    name: Build Linux Electron packages (${{ github.event.inputs.arch || 'x64' }})
-    runs-on: ubuntu-latest
+    name: Build Linux Electron packages (${{ matrix.arch }})
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 150
     strategy:
       fail-fast: false
