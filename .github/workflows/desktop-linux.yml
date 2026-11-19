@@ -95,7 +95,7 @@ jobs:
 
       - name: Build Linux Electron packages
         working-directory: desktop/electron
-        run: npx electron-builder --linux --publish never --arch ${{ matrix.arch }}
+        run: npx electron-builder --linux ${{ matrix.arch == 'arm64' && '--arm64' || '--x64' }} --publish never
 
       - name: Verify Electron package
         working-directory: desktop/electron
