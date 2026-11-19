@@ -230,6 +230,7 @@
       "icon": "assets/icon.png",
       "category": "Development",
       "synopsis": "OpenSquilla Control UI",
+      "executableName": "OpenSquilla",
       "target": [
         "AppImage",
         "deb"
